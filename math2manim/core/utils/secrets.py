@@ -15,6 +15,8 @@ except ImportError:  # pragma: no cover
 
 def env_var_for_provider(provider: str) -> str:
     normalized = provider.strip().lower()
+    if normalized == "openrouter":
+        return "OPENROUTER_API_KEY"
     if normalized == "openai":
         return "OPENAI_API_KEY"
     if normalized == "gemini":

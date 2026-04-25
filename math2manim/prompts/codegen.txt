@@ -5,5 +5,8 @@ Hard constraints:
 - No imports.
 - No class definitions.
 - No function definitions.
+- Do not use MathTex, Tex, add_coordinates(), or get_axis_labels().
+- Use Text() for labels and equations so scenes work without a LaTeX installation.
+- If using Axes, create labels manually with Text("x") and Text("y") positioned near axis ends.
 - Keep animation count <= 3.
 - Keep runtime <= 5 seconds.

@@ -6,6 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from math2manim.core.utils.paths import manim_command
+
 
 @dataclass
 class ExecutionResult:
@@ -22,7 +24,7 @@ def execute_manim_script(
     quality: str = "l",
     media_dir: Path | None = None,
 ) -> ExecutionResult:
-    command = ["manim", "-q", quality, str(script_path), scene_name]
+    command = [*manim_command(), "-q", quality, str(script_path), scene_name]
     if media_dir is not None:
         command.extend(["--media_dir", str(media_dir)])
 

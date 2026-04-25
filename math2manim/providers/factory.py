@@ -5,12 +5,15 @@ from __future__ import annotations
 from .base import LLMProvider
 from .gemini_provider import GeminiProvider
 from .openai_provider import OpenAIProvider
+from .openrouter_provider import OpenRouterProvider
 
 
 def get_provider(name: str) -> LLMProvider:
     """Create a provider by user-facing name."""
 
     normalized = name.strip().lower()
+    if normalized == "openrouter":
+        return OpenRouterProvider()
     if normalized == "openai":
         return OpenAIProvider()
     if normalized == "gemini":
@@ -19,4 +22,4 @@ def get_provider(name: str) -> LLMProvider:
 
 
 def supported_providers() -> list[str]:
-    return ["openai", "gemini"]
+    return ["openrouter", "openai", "gemini"]

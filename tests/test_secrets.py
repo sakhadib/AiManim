@@ -15,6 +15,7 @@ class _FakeKeyring:
 
 
 def test_env_var_mapping() -> None:
+    assert secrets.env_var_for_provider("openrouter") == "OPENROUTER_API_KEY"
     assert secrets.env_var_for_provider("openai") == "OPENAI_API_KEY"
     assert secrets.env_var_for_provider("gemini") == "GEMINI_API_KEY"
 

@@ -37,11 +37,12 @@ class Scene(BaseModel):
 class ScenePlan(BaseModel):
     """Container for generated scenes."""
 
-    scenes: list[Scene]
+    scenes: list[Scene] = Field(min_length=1)
 
     @field_validator("scenes")
     @classmethod
-    def enforce_mvp_scene_count(cls, value: list[Scene]) -> list[Scene]:
-        if len(value) != 2:
-            raise ValueError("MVP requires exactly 2 scenes")
+    def enforce_unique_scene_ids(cls, value: list[Scene]) -> list[Scene]:
+        ids = [scene.id for scene in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Scene ids must be unique")
         return value

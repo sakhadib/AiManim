@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from math2manim.core.codegen.manim_codegen import validate_construct_body
+from math2manim.core.codegen.manim_codegen import normalize_construct_body, validate_construct_body
 from math2manim.providers.base import LLMProvider
 from math2manim.schemas.scene import Scene
 
@@ -24,7 +24,7 @@ class CodeFixer:
         return "Fix only the error and return construct body lines only."
 
     def fix(self, *, scene: Scene, construct_body: str, error_message: str) -> str:
-        prompt = (
+        base_prompt = (
             f"{self._repair_prompt()}\n\n"
             "Error Message:\n"
             f"{error_message}\n\n"
@@ -33,10 +33,27 @@ class CodeFixer:
             f"Scene goal: {scene.goal}\n"
             "Return only corrected lines for construct(self)."
         )
-        fixed = self.provider.generate(prompt, model=self.model).strip()
-        if fixed.startswith("```"):
-            fixed = "\n".join(
-                line for line in fixed.splitlines() if not line.strip().startswith("```")
-            ).strip()
-        validate_construct_body(fixed)
-        return fixed
+        prompt = base_prompt
+        last_error: ValueError | None = None
+        last_body = ""
+
+        for _ in range(3):
+            fixed = normalize_construct_body(self.provider.generate(prompt, model=self.model))
+            try:
+                validate_construct_body(fixed)
+                return fixed
+            except ValueError as error:
+                last_error = error
+                last_body = fixed
+                prompt = (
+                    f"{base_prompt}\n\n"
+                    "Your previous repair could not be used.\n"
+                    f"Validation error: {error}\n\n"
+                    "Previous repair:\n"
+                    f"{fixed}\n\n"
+                    "Return the complete corrected construct body only. "
+                    "Do not include imports, class definitions, def construct, MathTex, Tex, "
+                    "add_coordinates(), or get_axis_labels()."
+                )
+
+        raise ValueError(f"Repair code is still invalid after retries: {last_error}\nLast body:\n{last_body}")

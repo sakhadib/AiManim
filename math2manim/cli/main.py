@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -17,11 +18,27 @@ from math2manim.workflows.langgraph_flow import run_pipeline
 app = typer.Typer(add_completion=False)
 
 
+def _new_run_dir(base_dir: Path = Path("temp")) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = base_dir / timestamp
+    suffix = 1
+    while run_dir.exists():
+        run_dir = base_dir / f"{timestamp}_{suffix}"
+        suffix += 1
+    return run_dir
+
+
 def _prompt_provider() -> str:
-    selected = typer.prompt("Select provider", default="openai").strip().lower()
+    selected = typer.prompt("Select provider", default="openrouter").strip().lower()
     if selected not in supported_providers():
         raise typer.BadParameter(f"Provider must be one of: {', '.join(supported_providers())}")
     return selected
+
+
+def _prompt_model(provider: str) -> str | None:
+    if provider != "openrouter":
+        return None
+    return typer.prompt("OpenRouter model id").strip()
 
 
 def _ensure_api_key(provider: str) -> None:
@@ -49,6 +66,7 @@ def main(
     out: Path = typer.Option(Path("outputs/final.mp4"), help="Output video path"),
     max_retries: int = typer.Option(3, min=1, max=3, help="Maximum repair retries per scene"),
     keep_scenes: bool = typer.Option(False, help="Keep intermediate scene scripts and media"),
+    temp_dir: Path = typer.Option(Path("temp"), help="Directory for timestamped run artifacts"),
     dry_run: bool = typer.Option(False, help="Print plan/code and skip execution"),
 ) -> None:
     """Generate short Manim scenes from a math prompt."""
@@ -56,35 +74,54 @@ def main(
     selected_provider = provider.strip().lower() if provider else _prompt_provider()
     if selected_provider not in supported_providers():
         raise typer.BadParameter(f"Provider must be one of: {', '.join(supported_providers())}")
+    selected_model = model or _prompt_model(selected_provider)
 
     _ensure_api_key(selected_provider)
     selected = get_provider(selected_provider)
+    run_dir = _new_run_dir(temp_dir)
+    typer.echo(f"Run artifacts: {run_dir}")
 
     if dry_run:
-        planner = ScenePlanner(provider=selected, model=model)
-        codegen = ManimCodeGenerator(provider=selected, model=model)
+        planner = ScenePlanner(provider=selected, model=selected_model)
+        codegen = ManimCodeGenerator(provider=selected, model=selected_model)
 
+        typer.echo("Planning scenes with AI...")
         plan = planner.plan(prompt)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
+        (run_dir / "plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+
         typer.echo("=== Scene Plan ===")
         typer.echo(json.dumps(plan.model_dump(), indent=2))
 
         typer.echo("\n=== Generated construct() bodies ===")
         for scene in plan.scenes:
+            scene_dir = run_dir / "scenes" / f"scene_{scene.id:03d}"
+            scene_dir.mkdir(parents=True, exist_ok=True)
+            typer.echo(f"Generating Manim code for scene {scene.id}: {scene.goal}")
+            body = codegen.generate_construct_body(scene)
+            class_name, source = codegen.build_scene_source(scene, body)
+            (scene_dir / "scene.json").write_text(scene.model_dump_json(indent=2), encoding="utf-8")
+            (scene_dir / "construct_body.py").write_text(body, encoding="utf-8")
+            (scene_dir / f"{class_name}.py").write_text(source, encoding="utf-8")
             typer.echo(f"\n# Scene {scene.id}: {scene.goal}")
-            typer.echo(codegen.generate_construct_body(scene))
+            typer.echo(body)
         return
 
     result = run_pipeline(
         user_prompt=prompt,
         provider=selected,
-        model=model,
+        model=selected_model,
         output_file=out,
         max_retries=max_retries,
         keep_scenes=keep_scenes,
         quality="l",
+        workspace_dir=run_dir,
+        progress=typer.echo,
     )
     typer.echo(f"Rendered {len(result.scene_videos)} scenes")
     typer.echo(f"Final video: {result.final_video}")
+    typer.echo(f"Run artifacts: {result.workspace}")
 
 
 if __name__ == "__main__":
