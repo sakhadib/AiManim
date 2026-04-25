@@ -52,7 +52,7 @@ Install the package:
 
 ```powershell
 python -m pip install -e .
-python -m pip install manim
+python -m pip install -r requirements.txt
 ```
 
 ## API Keys
