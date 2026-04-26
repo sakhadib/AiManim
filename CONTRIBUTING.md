@@ -20,7 +20,7 @@ To get started, you'll need Python 3.10+, [Manim Community](https://www.manim.co
 1. **Fork and Clone:**
    Fork the repository to your own GitHub account and clone it locally.
    ```powershell
-   git clone [https://github.com/sakhadib/aimanim.git](https://github.com/sakhadib/aimanim.git)
+   git clone https://github.com/sakhadib/aimanim.git
    cd aimanim
    ```
 
