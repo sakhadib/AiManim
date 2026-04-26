@@ -181,6 +181,68 @@ aimanim generate "Explain derivatives" --provider openai --model gpt-4.1-mini --
 
 If `--non-interactive` is enabled and setup is missing, AIManim fails with a clear message instead of prompting.
 
+## CLI Parameters and Use Cases
+
+The `generate` command supports the parameters below.
+
+### Core command
+
+```powershell
+aimanim generate "<your prompt>" [options]
+```
+
+### Parameter reference (`aimanim generate`)
+
+| Parameter | What it controls | Typical values | Use case |
+|---|---|---|---|
+| `--provider`, `-p` | AI provider backend | `openrouter`, `openai`, `gemini` | Switch model ecosystem (for example OpenRouter vs direct OpenAI/Gemini). |
+| `--model`, `-m` | Model id for selected provider | `deepseek/deepseek-v4-flash`, `gpt-4.1-mini`, `gemini-1.5-flash` | Pin a specific model for quality, speed, or cost. |
+| `--out`, `-o` | Final stitched video path | `outputs/final.mp4` | Route output to a named file for experiments/batches. |
+| `--max-retries` | Repair attempts per scene | `1` to `3` | Increase robustness on difficult prompts with fragile codegen. |
+| `--keep-scenes` | Keep intermediate scene scripts/media | flag | Debug failed scene renders and inspect generated code. |
+| `--temp-dir` | Root folder for timestamped run artifacts | `temp` or custom path | Store run logs/artifacts in a separate workspace or disk. |
+| `--dry-run` | Plan + codegen only (no render/stitch) | flag | Fast iteration on prompts and planning before expensive render. |
+| `--codegen-workers` | Parallel workers for initial scene code generation | `1` to `16` | Increase throughput on long videos with many scenes. |
+| `--min-scenes` | Lower bound for planned scene count | `2`, `6`, `10`, `15` | Force richer explanation depth for complex topics. |
+| `--max-scenes` | Upper bound for planned scene count | `5`, `14`, `25` | Cap total scenes to control runtime and cost. |
+| `--target-total-seconds` | Planning target for overall video duration | `60`, `120`, `180` | Nudge planner toward longer or shorter final videos. |
+| `--voiceover` | Enable built-in narration rendering | flag | Add TTS narration aligned with each scene. |
+| `--voice-provider` | Voice backend in voiceover mode | `gtts`, `pyttsx3` | Choose cloud-like voice (`gtts`) vs local engine (`pyttsx3`). |
+| `--voice-lang` | Language code for `gtts` | `en`, `en-us`, `hi` | Render narration in the desired language/accent code. |
+| `--non-interactive` | Disable prompts and fail fast on missing setup | flag | CI pipelines, cron jobs, and scripted automation. |
+
+### Quick recipes
+
+Default generate:
+
+```powershell
+aimanim generate "Explain circle"
+```
+
+Long-form lesson with many scenes:
+
+```powershell
+aimanim generate "Explain Newton-Raphson with worked examples" --min-scenes 15 --max-scenes 25 --target-total-seconds 180 --codegen-workers 8
+```
+
+Fast planning iteration only:
+
+```powershell
+aimanim generate "Explain eigen vectors" --dry-run --min-scenes 8 --max-scenes 16
+```
+
+Voiceover output:
+
+```powershell
+aimanim generate "Explain circle" --voiceover --voice-provider gtts --voice-lang en --out outputs/circle_voice.mp4
+```
+
+CI-safe run with explicit provider/model:
+
+```powershell
+aimanim generate "Explain derivatives" --provider openai --model gpt-4.1-mini --non-interactive
+```
+
 ## Reliability Behavior
 
 - Planner stage auto-regenerates if AI output is invalid JSON, schema-invalid, or violates scene-count bounds.
