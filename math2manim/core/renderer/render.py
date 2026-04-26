@@ -51,13 +51,14 @@ def render_scene_with_retries(
     max_retries: int = 3,
     quality: str = "l",
     progress: Callable[[str], None] | None = None,
+    initial_construct_body: str | None = None,
 ) -> RenderResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     media_dir.mkdir(parents=True, exist_ok=True)
 
-    if progress:
+    if initial_construct_body is None and progress:
         progress(f"Generating Manim code for scene {scene.id}: {scene.goal}")
-    construct_body = codegen.generate_construct_body(scene)
+    construct_body = initial_construct_body or codegen.generate_construct_body(scene)
     scene_dir = output_dir / f"scene_{scene.id:03d}"
     scene_dir.mkdir(parents=True, exist_ok=True)
     (scene_dir / "scene.json").write_text(scene.model_dump_json(indent=2), encoding="utf-8")

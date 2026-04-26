@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "strugglemath"
+name = "aimanim"
 version = "0.1.0"
-description = "Prompt-to-Manim CLI pipeline"
+description = "AI-powered prompt-to-Manim CLI pipeline"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -13,6 +13,7 @@ dependencies = [
   "typer>=0.12",
   "langgraph>=0.2",
   "keyring>=25.0",
+  "manim>=0.20.1",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +22,12 @@ dev = [
 ]
 
 [project.scripts]
-math2manim = "math2manim.cli.main:app"
+aimanim = "math2manim.cli.main:cli"
+math2manim = "math2manim.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["math2manim*"]
+exclude = ["temp*", "outputs*", "media*", "tests*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

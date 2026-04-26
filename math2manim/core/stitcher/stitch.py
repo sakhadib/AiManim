@@ -19,8 +19,12 @@ def stitch_videos(scene_files: list[Path], output_file: Path, work_dir: Path) ->
     if not ffmpeg_available():
         raise RuntimeError("ffmpeg not found in PATH")
 
+    existing_scene_files = [path for path in scene_files if path.exists()]
+    if not existing_scene_files:
+        raise ValueError("No rendered scene video files exist for stitching")
+
     list_file = work_dir / "concat_list.txt"
-    lines = [f"file '{_ffmpeg_concat_path(path)}'" for path in scene_files]
+    lines = [f"file '{_ffmpeg_concat_path(path)}'" for path in existing_scene_files]
     list_file.write_text("\n".join(lines), encoding="utf-8")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)

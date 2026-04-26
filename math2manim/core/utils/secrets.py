@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 from typing import Final
 
-SERVICE_NAME: Final[str] = "strugglemath"
+SERVICE_NAME: Final[str] = "aimanim"
+LEGACY_SERVICE_NAME: Final[str] = "strugglemath"
 
 try:
     import keyring
@@ -34,7 +35,11 @@ def get_api_key(provider: str) -> str | None:
         return None
 
     try:
-        return keyring.get_password(SERVICE_NAME, provider.strip().lower())
+        normalized = provider.strip().lower()
+        return keyring.get_password(SERVICE_NAME, normalized) or keyring.get_password(
+            LEGACY_SERVICE_NAME,
+            normalized,
+        )
     except Exception:
         return None
 

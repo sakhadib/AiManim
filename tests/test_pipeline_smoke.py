@@ -21,7 +21,7 @@ def test_planner_and_codegen_dry_run_smoke() -> None:
     planner = ScenePlanner(provider=provider, model="fake")
     codegen = ManimCodeGenerator(provider=provider, model="fake")
 
-    plan = planner.plan("Explain gradient descent")
+    plan = planner.plan("Explain gradient descent", min_scenes=2, max_scenes=6)
     assert len(plan.scenes) == 2
 
     for scene in plan.scenes:

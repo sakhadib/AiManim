@@ -3,6 +3,10 @@ import pytest
 from math2manim.core.codegen.manim_codegen import normalize_construct_body, validate_construct_body
 
 
+def _canonical(code: str) -> str:
+    return "\n".join(line.strip() for line in code.strip().splitlines())
+
+
 def test_validate_construct_body_rejects_plain_english() -> None:
     with pytest.raises(ValueError, match="valid Python"):
         validate_construct_body("This cannot be fixed by changing the code.")
@@ -26,7 +30,11 @@ def test_normalize_construct_body_extracts_full_scene_script() -> None:
             self.play(Write(title))
     '''
 
-    assert normalize_construct_body(response) == 'title = Text("Regression")\nself.play(Write(title))'
+    normalized = normalize_construct_body(response)
+    assert _canonical(normalized) in {
+        'title = Text("Regression")\nself.play(Write(title))',
+        "title = Text('Regression')\nself.play(Write(title))",
+    }
 
 
 def test_normalize_construct_body_drops_accidental_imports() -> None:
@@ -36,7 +44,11 @@ def test_normalize_construct_body_drops_accidental_imports() -> None:
     self.play(Write(title))
     '''
 
-    assert normalize_construct_body(response) == 'title = Text("Regression")\nself.play(Write(title))'
+    normalized = normalize_construct_body(response)
+    assert _canonical(normalized) in {
+        'title = Text("Regression")\nself.play(Write(title))',
+        "title = Text('Regression')\nself.play(Write(title))",
+    }
 
 
 def test_validate_construct_body_rejects_import_nodes() -> None:

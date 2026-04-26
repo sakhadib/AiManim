@@ -1,3 +1,19 @@
+Metadata-Version: 2.4
+Name: aimanim
+Version: 0.1.0
+Summary: AI-powered prompt-to-Manim CLI pipeline
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2.6
+Requires-Dist: typer>=0.12
+Requires-Dist: langgraph>=0.2
+Requires-Dist: keyring>=25.0
+Requires-Dist: manim>=0.20.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Dynamic: license-file
+
 # AIManim
 
 AIManim turns plain-language math prompts into short Manim animations.
@@ -12,15 +28,11 @@ Repository: [github.com/sakhadib/aimanim](https://github.com/sakhadib/aimanim)
 - OpenRouter, OpenAI, and Gemini provider support
 - Configurable model id per provider
 - Automatic scene planning
-- Adaptive scene planning controls (`--min-scenes`, `--max-scenes`, `--target-total-seconds`)
 - Manim code generation with validation and repair
-- Planner regeneration when AI returns invalid JSON/plan structure
-- Code generation regeneration when AI returns invalid construct bodies
 - Progress messages while the pipeline runs
 - Timestamped debug artifacts under `temp/`
 - Intermediate scene scripts, repair attempts, logs, rendered media, and plans saved for inspection
 - FFmpeg stitching into one final `.mp4`
-- Partial-output stitching: failed or missing scenes are skipped and remaining scenes are stitched in order
 
 ## Requirements
 
@@ -112,13 +124,7 @@ aimanim generate "Explain linear regression"
 Generate with all options:
 
 ```powershell
-aimanim generate "Explain Fibonacci numbers and their mind-blowing facts" --provider openrouter --model deepseek/deepseek-v4-flash --out outputs/final.mp4 --codegen-workers 4
-```
-
-Generate a longer, richer explanation by targeting more scenes and total duration:
-
-```powershell
-aimanim generate "Explain eigen vectors with worked examples" --provider openai --min-scenes 10 --max-scenes 20 --target-total-seconds 120 --codegen-workers 8
+aimanim generate "Explain Fibonacci numbers and their mind-blowing facts" --provider openrouter --model deepseek/deepseek-v4-flash --out outputs/final.mp4
 ```
 
 If you omit `--model` for OpenRouter, AIManim prompts for the model id:
@@ -158,37 +164,6 @@ Command overview:
 - `doctor`: check Manim, FFmpeg, default provider, default model, and API key status.
 - `generate`: create a video from a math prompt.
 - Root prompt shortcut: `aimanim "Explain ..."`.
-
-Initial scene code generation runs in parallel by default. Tune it with:
-
-```powershell
-aimanim generate "Explain Fourier series" --codegen-workers 6
-```
-
-Rendering still runs scene-by-scene so Manim media output and repair logs stay predictable.
-
-Scene planning controls:
-
-```powershell
-aimanim generate "Explain Newton-Raphson" --min-scenes 15 --max-scenes 25 --target-total-seconds 150
-```
-
-Non-interactive mode for CI or scripts:
-
-```powershell
-aimanim generate "Explain derivatives" --provider openai --model gpt-4.1-mini --non-interactive
-```
-
-If `--non-interactive` is enabled and setup is missing, AIManim fails with a clear message instead of prompting.
-
-## Reliability Behavior
-
-- Planner stage auto-regenerates if AI output is invalid JSON, schema-invalid, or violates scene-count bounds.
-- Codegen stage auto-regenerates when output cannot be normalized/validated as `construct()` body code.
-- Render stage retries per scene with AI-assisted fixes up to `--max-retries`.
-- Environment failures (missing/blocked Manim dependencies) are surfaced clearly and are not treated as AI-fixable.
-- If a scene fails or a scene video is missing, the run continues and stitches remaining valid scenes in order.
-- If all scenes fail, the run exits with a clear "nothing to stitch" style error.
 
 ## Debug Artifacts
 

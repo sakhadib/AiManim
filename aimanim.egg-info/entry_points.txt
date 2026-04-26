@@ -1,0 +1,3 @@
+[console_scripts]
+aimanim = math2manim.cli.main:cli
+math2manim = math2manim.cli.main:cli

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from math2manim.core.codegen.manim_codegen import ManimCodeGenerator
+from math2manim.core.codegen.manim_codegen import ManimCodeGenerator, generate_construct_bodies_parallel
 from math2manim.core.planner.scene_planner import ScenePlanner
 from math2manim.core.renderer.render import render_scene_with_retries
 from math2manim.core.repair.fixer import CodeFixer
@@ -27,6 +27,7 @@ class PipelineResult:
     scene_videos: list[Path]
     final_video: Path | None
     workspace: Path
+    skipped_scene_ids: list[int]
 
 
 def run_pipeline(
@@ -40,6 +41,10 @@ def run_pipeline(
     quality: str = "l",
     workspace_dir: Path | None = None,
     progress: Callable[[str], None] | None = None,
+    codegen_workers: int = 4,
+    min_scenes: int = 6,
+    max_scenes: int = 14,
+    target_total_duration_sec: int = 60,
 ) -> PipelineResult:
     def report(message: str) -> None:
         if progress:
@@ -76,32 +81,68 @@ def run_pipeline(
         fixer = CodeFixer(provider=provider, model=model)
 
         report("Planning scenes with AI...")
-        plan = planner.plan(user_prompt)
+        plan = planner.plan(
+            user_prompt,
+            min_scenes=min_scenes,
+            max_scenes=max_scenes,
+            target_total_duration_sec=target_total_duration_sec,
+            progress=report,
+        )
         report(f"Planned {len(plan.scenes)} scene(s).")
 
         media_dir = workspace / "media"
         scene_sources = workspace / "scenes"
         scene_videos: list[Path] = []
+        skipped_scene_ids: list[int] = []
 
         (workspace / "plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+        construct_bodies = generate_construct_bodies_parallel(
+            codegen=codegen,
+            scenes=plan.scenes,
+            max_workers=codegen_workers,
+            progress=report,
+        )
 
         for scene in plan.scenes:
-            result = render_scene_with_retries(
-                scene=scene,
-                output_dir=scene_sources,
-                media_dir=media_dir,
-                codegen=codegen,
-                fixer=fixer,
-                max_retries=max_retries,
-                quality=quality,
-                progress=report,
-            )
+            try:
+                result = render_scene_with_retries(
+                    scene=scene,
+                    output_dir=scene_sources,
+                    media_dir=media_dir,
+                    codegen=codegen,
+                    fixer=fixer,
+                    max_retries=max_retries,
+                    quality=quality,
+                    progress=report,
+                    initial_construct_body=construct_bodies[scene.id],
+                )
+            except Exception as error:
+                skipped_scene_ids.append(scene.id)
+                report(f"Skipping scene {scene.id} due to render failure: {error}")
+                continue
+
+            if not result.video_path.exists():
+                skipped_scene_ids.append(scene.id)
+                report(f"Skipping scene {scene.id} because output video was not produced.")
+                continue
+
             scene_videos.append(result.video_path)
+
+        if not scene_videos:
+            raise RuntimeError("No scenes rendered successfully; nothing to stitch")
+
+        if skipped_scene_ids:
+            report(f"Continuing with partial output. Skipped scenes: {skipped_scene_ids}")
 
         report("Stitching scene videos with FFmpeg...")
         stitch_videos(scene_videos, output_file=output_file, work_dir=workspace)
         report(f"Final video written to {output_file}")
-        return PipelineResult(scene_videos=scene_videos, final_video=output_file, workspace=workspace)
+        return PipelineResult(
+            scene_videos=scene_videos,
+            final_video=output_file,
+            workspace=workspace,
+            skipped_scene_ids=skipped_scene_ids,
+        )
     finally:
         if cleanup is not None:
             cleanup.__exit__(None, None, None)

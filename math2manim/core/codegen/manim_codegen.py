@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import ast
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import inspect
 from pathlib import Path
 from textwrap import dedent
+from typing import Callable
 
 from math2manim.providers.base import LLMProvider
 from math2manim.schemas.scene import Scene
@@ -30,11 +33,17 @@ def _unparse_body(statements: list[ast.stmt]) -> str:
 def normalize_construct_body(text: str) -> str:
     """Convert common LLM responses into construct-body-only code."""
 
-    body = dedent(_strip_markdown_fences(text)).strip()
+    body = inspect.cleandoc(_strip_markdown_fences(text)).strip()
     try:
         module = ast.parse(body)
     except SyntaxError:
-        return body
+        # Retry after removing any accidental leading indentation/newlines.
+        retried = dedent(body.lstrip()).strip()
+        try:
+            module = ast.parse(retried)
+            body = retried
+        except SyntaxError:
+            return body
 
     for node in module.body:
         if isinstance(node, ast.ClassDef):
@@ -132,3 +141,59 @@ class ManimCodeGenerator:
         class_name = f"Scene{scene.id}"
         source = build_scene_script(class_name=class_name, construct_body=construct_body)
         return class_name, source
+
+
+def generate_construct_bodies_parallel(
+    *,
+    codegen: ManimCodeGenerator,
+    scenes: list[Scene],
+    max_workers: int,
+    progress: Callable[[str], None] | None = None,
+    max_scene_generation_attempts: int = 2,
+) -> dict[int, str]:
+    """Generate initial construct bodies concurrently, keyed by scene id."""
+
+    if not scenes:
+        return {}
+
+    workers = max(1, min(max_workers, len(scenes)))
+
+    def generate_with_regeneration(scene: Scene) -> str:
+        last_error: Exception | None = None
+        for attempt in range(1, max_scene_generation_attempts + 1):
+            try:
+                return codegen.generate_construct_body(scene)
+            except ValueError as error:
+                last_error = error
+                if progress and max_scene_generation_attempts > 1:
+                    progress(
+                        f"Scene {scene.id} codegen failed (attempt {attempt}/{max_scene_generation_attempts}); regenerating..."
+                    )
+        raise RuntimeError(
+            f"Scene {scene.id} codegen failed after {max_scene_generation_attempts} regeneration attempt(s): {last_error}"
+        )
+
+    if workers == 1:
+        bodies: dict[int, str] = {}
+        for scene in scenes:
+            if progress:
+                progress(f"Generating Manim code for scene {scene.id}: {scene.goal}")
+            bodies[scene.id] = generate_with_regeneration(scene)
+        return bodies
+
+    if progress:
+        progress(f"Generating Manim code for {len(scenes)} scene(s) using {workers} worker(s)...")
+
+    bodies = {}
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(generate_with_regeneration, scene): scene
+            for scene in scenes
+        }
+        for future in as_completed(futures):
+            scene = futures[future]
+            bodies[scene.id] = future.result()
+            if progress:
+                progress(f"Generated Manim code for scene {scene.id}: {scene.goal}")
+
+    return bodies

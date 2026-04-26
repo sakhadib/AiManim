@@ -36,6 +36,15 @@ def test_store_and_get_from_keyring(monkeypatch) -> None:
     assert secrets.get_api_key("openai") == "stored-key"
 
 
+def test_get_api_key_uses_legacy_keyring_service(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    fake = _FakeKeyring()
+    fake.set_password(secrets.LEGACY_SERVICE_NAME, "openai", "legacy-key")
+    monkeypatch.setattr(secrets, "keyring", fake)
+
+    assert secrets.get_api_key("openai") == "legacy-key"
+
+
 def test_store_returns_false_without_keyring(monkeypatch) -> None:
     monkeypatch.setattr(secrets, "keyring", None)
     assert secrets.store_api_key("openai", "key") is False
