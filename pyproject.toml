@@ -20,6 +20,11 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+voice = [
+  "manim-voiceover>=0.3.7",
+  "gTTS>=2.5",
+  "pyttsx3>=2.90",
+]
 
 [project.scripts]
 aimanim = "math2manim.cli.main:cli"

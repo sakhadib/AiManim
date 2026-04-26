@@ -13,7 +13,7 @@ import typer
 from math2manim.core.codegen.manim_codegen import ManimCodeGenerator, generate_construct_bodies_parallel
 from math2manim.core.planner.scene_planner import ScenePlanner
 from math2manim.core.utils.config import CONFIG_FILE, CLIConfig, load_config, save_config
-from math2manim.core.utils.paths import ffmpeg_available, manim_available
+from math2manim.core.utils.paths import ffmpeg_available, manim_available, manim_voiceover_available
 from math2manim.core.utils.secrets import env_var_for_provider, get_api_key, store_api_key
 from math2manim.providers.factory import get_provider, supported_providers
 from math2manim.workflows.langgraph_flow import run_pipeline
@@ -122,10 +122,16 @@ def _run_generate(
     min_scenes: int,
     max_scenes: int,
     target_total_duration_sec: int,
+    enable_voiceover: bool,
+    voice_provider: str,
+    voice_lang: str,
     non_interactive: bool = False,
 ) -> None:
     if max_scenes < min_scenes:
         raise typer.BadParameter("--max-scenes must be greater than or equal to --min-scenes")
+
+    if enable_voiceover and voice_provider.strip().lower() not in {"gtts", "pyttsx3"}:
+        raise typer.BadParameter("--voice-provider must be either 'gtts' or 'pyttsx3'")
 
     config = load_config()
     selected_provider = _resolve_provider(provider, config, interactive=not non_interactive)
@@ -142,6 +148,8 @@ def _run_generate(
     typer.echo(f"Provider: {selected_provider}")
     if selected_model:
         typer.echo(f"Model: {selected_model}")
+    if enable_voiceover:
+        typer.echo(f"Voiceover: enabled ({voice_provider}, lang={voice_lang})")
     typer.echo(f"Run artifacts: {run_dir}")
 
     if dry_run:
@@ -174,7 +182,13 @@ def _run_generate(
             scene_dir = run_dir / "scenes" / f"scene_{scene.id:03d}"
             scene_dir.mkdir(parents=True, exist_ok=True)
             body = construct_bodies[scene.id]
-            class_name, source = codegen.build_scene_source(scene, body)
+            class_name, source = codegen.build_scene_source(
+                scene,
+                body,
+                enable_voiceover=enable_voiceover,
+                voice_provider=voice_provider,
+                voice_lang=voice_lang,
+            )
             (scene_dir / "scene.json").write_text(scene.model_dump_json(indent=2), encoding="utf-8")
             (scene_dir / "construct_body.py").write_text(body, encoding="utf-8")
             (scene_dir / f"{class_name}.py").write_text(source, encoding="utf-8")
@@ -196,6 +210,9 @@ def _run_generate(
         min_scenes=min_scenes,
         max_scenes=max_scenes,
         target_total_duration_sec=target_total_duration_sec,
+        enable_voiceover=enable_voiceover,
+        voice_provider=voice_provider,
+        voice_lang=voice_lang,
     )
     typer.echo(f"Rendered {len(result.scene_videos)} scenes")
     if result.skipped_scene_ids:
@@ -223,6 +240,9 @@ def generate(
     min_scenes: int = typer.Option(6, "--min-scenes", min=1, max=60, help="Minimum planned scene count"),
     max_scenes: int = typer.Option(14, "--max-scenes", min=1, max=60, help="Maximum planned scene count"),
     target_total_duration_sec: int = typer.Option(60, "--target-total-seconds", min=5, max=900, help="Target overall video duration for planning"),
+    enable_voiceover: bool = typer.Option(False, "--voiceover", help="Enable narration voiceover during rendering"),
+    voice_provider: str = typer.Option("gtts", "--voice-provider", help="Voice provider: gtts or pyttsx3"),
+    voice_lang: str = typer.Option("en", "--voice-lang", help="Voice language code for gtts"),
     non_interactive: bool = typer.Option(False, "--non-interactive", help="Fail instead of prompting for missing setup"),
 ) -> None:
     """Generate a Manim video from a math prompt."""
@@ -240,6 +260,9 @@ def generate(
         min_scenes=min_scenes,
         max_scenes=max_scenes,
         target_total_duration_sec=target_total_duration_sec,
+        enable_voiceover=enable_voiceover,
+        voice_provider=voice_provider,
+        voice_lang=voice_lang,
         non_interactive=non_interactive,
     )
 
@@ -286,11 +309,16 @@ def doctor() -> None:
     """Check local render tools and provider setup."""
 
     config = load_config()
-    checks = [
+    core_checks = [
         ("Manim", manim_available()),
         ("FFmpeg", ffmpeg_available()),
     ]
-    for name, ok in checks:
+    voice_checks = [
+        ("Voiceover (gtts)", manim_voiceover_available("gtts")),
+        ("Voiceover (pyttsx3)", manim_voiceover_available("pyttsx3")),
+    ]
+
+    for name, ok in core_checks + voice_checks:
         typer.echo(f"{name}: {'ok' if ok else 'missing'}")
 
     if config.default_provider:
@@ -301,7 +329,7 @@ def doctor() -> None:
     else:
         typer.echo("Default provider: not configured")
 
-    if not all(ok for _, ok in checks):
+    if not all(ok for _, ok in core_checks):
         raise typer.Exit(code=1)
 
 

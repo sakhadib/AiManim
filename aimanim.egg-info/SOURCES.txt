@@ -42,8 +42,12 @@ math2manim/workflows/langgraph_flow.py
 tests/test_cli_args.py
 tests/test_codegen_validation.py
 tests/test_config.py
+tests/test_manim_template_voiceover.py
+tests/test_pipeline_partial_stitch.py
 tests/test_pipeline_preflight.py
 tests/test_pipeline_smoke.py
 tests/test_provider_factory.py
+tests/test_scene_planner_regeneration.py
 tests/test_scene_schema.py
 tests/test_secrets.py
+tests/test_voiceover_preflight.py

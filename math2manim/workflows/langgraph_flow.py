@@ -11,7 +11,12 @@ from math2manim.core.planner.scene_planner import ScenePlanner
 from math2manim.core.renderer.render import render_scene_with_retries
 from math2manim.core.repair.fixer import CodeFixer
 from math2manim.core.stitcher.stitch import stitch_videos
-from math2manim.core.utils.paths import ffmpeg_available, manim_available, temporary_workspace
+from math2manim.core.utils.paths import (
+    ffmpeg_available,
+    manim_available,
+    manim_voiceover_available,
+    temporary_workspace,
+)
 from math2manim.providers.base import LLMProvider
 
 try:
@@ -45,6 +50,9 @@ def run_pipeline(
     min_scenes: int = 6,
     max_scenes: int = 14,
     target_total_duration_sec: int = 60,
+    enable_voiceover: bool = False,
+    voice_provider: str = "gtts",
+    voice_lang: str = "en",
 ) -> PipelineResult:
     def report(message: str) -> None:
         if progress:
@@ -75,6 +83,12 @@ def run_pipeline(
         if missing_tools:
             tools = ", ".join(missing_tools)
             raise RuntimeError(f"Missing required render tool(s): {tools}. Install them or run with --dry-run.")
+
+        if enable_voiceover and not manim_voiceover_available(voice_provider):
+            raise RuntimeError(
+                "Voiceover mode requires manim-voiceover and the selected speech provider dependencies. "
+                f"Missing dependencies for provider: {voice_provider}."
+            )
 
         planner = ScenePlanner(provider=provider, model=model)
         codegen = ManimCodeGenerator(provider=provider, model=model)
@@ -115,6 +129,9 @@ def run_pipeline(
                     quality=quality,
                     progress=report,
                     initial_construct_body=construct_bodies[scene.id],
+                    enable_voiceover=enable_voiceover,
+                    voice_provider=voice_provider,
+                    voice_lang=voice_lang,
                 )
             except Exception as error:
                 skipped_scene_ids.append(scene.id)

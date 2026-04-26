@@ -32,6 +32,17 @@ def manim_command() -> list[str]:
     raise RuntimeError("manim not found. Install Manim or run with --dry-run to skip rendering.")
 
 
+def manim_voiceover_available(voice_provider: str) -> bool:
+    if importlib.util.find_spec("manim_voiceover") is None:
+        return False
+
+    provider = voice_provider.strip().lower()
+    if provider == "pyttsx3":
+        return importlib.util.find_spec("pyttsx3") is not None
+    # Default gtts provider path
+    return importlib.util.find_spec("gtts") is not None
+
+
 @contextmanager
 def temporary_workspace(prefix: str = "math2manim_") -> Iterator[Path]:
     with tempfile.TemporaryDirectory(prefix=prefix) as tmp:

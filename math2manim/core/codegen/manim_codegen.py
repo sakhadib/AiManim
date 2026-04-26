@@ -137,9 +137,24 @@ class ManimCodeGenerator:
 
         raise ValueError(f"Generated code is still invalid after retries: {last_error}\nLast body:\n{last_body}")
 
-    def build_scene_source(self, scene: Scene, construct_body: str) -> tuple[str, str]:
+    def build_scene_source(
+        self,
+        scene: Scene,
+        construct_body: str,
+        *,
+        enable_voiceover: bool = False,
+        voice_provider: str = "gtts",
+        voice_lang: str = "en",
+    ) -> tuple[str, str]:
         class_name = f"Scene{scene.id}"
-        source = build_scene_script(class_name=class_name, construct_body=construct_body)
+        source = build_scene_script(
+            class_name=class_name,
+            construct_body=construct_body,
+            enable_voiceover=enable_voiceover,
+            voice_provider=voice_provider,
+            voice_lang=voice_lang,
+            narration=scene.narration,
+        )
         return class_name, source
 
 

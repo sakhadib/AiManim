@@ -52,6 +52,9 @@ def render_scene_with_retries(
     quality: str = "l",
     progress: Callable[[str], None] | None = None,
     initial_construct_body: str | None = None,
+    enable_voiceover: bool = False,
+    voice_provider: str = "gtts",
+    voice_lang: str = "en",
 ) -> RenderResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -70,7 +73,13 @@ def render_scene_with_retries(
         if progress:
             progress(f"Rendering scene {scene.id}, attempt {attempts}/{max_retries}: {scene.goal}")
 
-        class_name, source = codegen.build_scene_source(scene, construct_body)
+        class_name, source = codegen.build_scene_source(
+            scene,
+            construct_body,
+            enable_voiceover=enable_voiceover,
+            voice_provider=voice_provider,
+            voice_lang=voice_lang,
+        )
         attempt_dir = scene_dir / f"attempt_{attempts}"
         attempt_dir.mkdir(parents=True, exist_ok=True)
         script_path = attempt_dir / f"scene_{scene.id}.py"

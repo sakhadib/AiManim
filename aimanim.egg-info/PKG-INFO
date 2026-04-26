@@ -12,6 +12,10 @@ Requires-Dist: keyring>=25.0
 Requires-Dist: manim>=0.20.1
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
+Provides-Extra: voice
+Requires-Dist: manim-voiceover>=0.3.7; extra == "voice"
+Requires-Dist: gTTS>=2.5; extra == "voice"
+Requires-Dist: pyttsx3>=2.90; extra == "voice"
 Dynamic: license-file
 
 # AIManim
@@ -28,11 +32,16 @@ Repository: [github.com/sakhadib/aimanim](https://github.com/sakhadib/aimanim)
 - OpenRouter, OpenAI, and Gemini provider support
 - Configurable model id per provider
 - Automatic scene planning
+- Adaptive scene planning controls (`--min-scenes`, `--max-scenes`, `--target-total-seconds`)
 - Manim code generation with validation and repair
+- Optional voiceover narration via Manim voiceover services (gTTS or pyttsx3)
+- Planner regeneration when AI returns invalid JSON/plan structure
+- Code generation regeneration when AI returns invalid construct bodies
 - Progress messages while the pipeline runs
 - Timestamped debug artifacts under `temp/`
 - Intermediate scene scripts, repair attempts, logs, rendered media, and plans saved for inspection
 - FFmpeg stitching into one final `.mp4`
+- Partial-output stitching: failed or missing scenes are skipped and remaining scenes are stitched in order
 
 ## Requirements
 
@@ -69,6 +78,12 @@ Install the package:
 ```powershell
 python -m pip install -r requirements.txt
 python -m pip install -e .
+```
+
+Optional voiceover dependencies:
+
+```powershell
+python -m pip install -e ".[voice]"
 ```
 
 ## First-Time Setup
@@ -124,7 +139,13 @@ aimanim generate "Explain linear regression"
 Generate with all options:
 
 ```powershell
-aimanim generate "Explain Fibonacci numbers and their mind-blowing facts" --provider openrouter --model deepseek/deepseek-v4-flash --out outputs/final.mp4
+aimanim generate "Explain Fibonacci numbers and their mind-blowing facts" --provider openrouter --model deepseek/deepseek-v4-flash --out outputs/final.mp4 --codegen-workers 4
+```
+
+Generate a longer, richer explanation by targeting more scenes and total duration:
+
+```powershell
+aimanim generate "Explain eigen vectors with worked examples" --provider openai --min-scenes 10 --max-scenes 20 --target-total-seconds 120 --codegen-workers 8
 ```
 
 If you omit `--model` for OpenRouter, AIManim prompts for the model id:
@@ -137,6 +158,12 @@ Dry run without rendering:
 
 ```powershell
 aimanim generate "Explain gradient descent" --provider openrouter --model deepseek/deepseek-v4-flash --dry-run
+```
+
+Generate with narration voiceover:
+
+```powershell
+aimanim generate "Explain Newton-Raphson method" --provider openai --voiceover --voice-provider gtts --voice-lang en --out outputs/newton_voice.mp4
 ```
 
 Legacy command alias:
@@ -164,6 +191,57 @@ Command overview:
 - `doctor`: check Manim, FFmpeg, default provider, default model, and API key status.
 - `generate`: create a video from a math prompt.
 - Root prompt shortcut: `aimanim "Explain ..."`.
+
+Initial scene code generation runs in parallel by default. Tune it with:
+
+```powershell
+aimanim generate "Explain Fourier series" --codegen-workers 6
+```
+
+Rendering still runs scene-by-scene so Manim media output and repair logs stay predictable.
+
+Scene planning controls:
+
+```powershell
+aimanim generate "Explain Newton-Raphson" --min-scenes 15 --max-scenes 25 --target-total-seconds 150
+```
+
+Non-interactive mode for CI or scripts:
+
+```powershell
+aimanim generate "Explain derivatives" --provider openai --model gpt-4.1-mini --non-interactive
+```
+
+If `--non-interactive` is enabled and setup is missing, AIManim fails with a clear message instead of prompting.
+
+## Voiceover
+
+AIManim can render narration directly inside each generated Manim scene.
+
+- Enable with `--voiceover`.
+- Choose provider with `--voice-provider gtts` or `--voice-provider pyttsx3`.
+- Set language for gTTS with `--voice-lang` (for example `en`, `en-us`, `hi`).
+
+Examples:
+
+```powershell
+aimanim generate "Explain eigen vectors" --voiceover --voice-provider gtts --voice-lang en
+aimanim generate "Explain gradient descent" --voiceover --voice-provider pyttsx3
+```
+
+Dependency notes:
+
+- Voiceover mode requires `manim-voiceover` plus the selected speech backend.
+- If voiceover dependencies are missing, AIManim fails early with a clear preflight error.
+
+## Reliability Behavior
+
+- Planner stage auto-regenerates if AI output is invalid JSON, schema-invalid, or violates scene-count bounds.
+- Codegen stage auto-regenerates when output cannot be normalized/validated as `construct()` body code.
+- Render stage retries per scene with AI-assisted fixes up to `--max-retries`.
+- Environment failures (missing/blocked Manim dependencies) are surfaced clearly and are not treated as AI-fixable.
+- If a scene fails or a scene video is missing, the run continues and stitches remaining valid scenes in order.
+- If all scenes fail, the run exits with a clear "nothing to stitch" style error.
 
 ## Debug Artifacts
 

@@ -14,6 +14,7 @@ Repository: [github.com/sakhadib/aimanim](https://github.com/sakhadib/aimanim)
 - Automatic scene planning
 - Adaptive scene planning controls (`--min-scenes`, `--max-scenes`, `--target-total-seconds`)
 - Manim code generation with validation and repair
+- Optional voiceover narration via Manim voiceover services (gTTS or pyttsx3)
 - Planner regeneration when AI returns invalid JSON/plan structure
 - Code generation regeneration when AI returns invalid construct bodies
 - Progress messages while the pipeline runs
@@ -57,6 +58,12 @@ Install the package:
 ```powershell
 python -m pip install -r requirements.txt
 python -m pip install -e .
+```
+
+Optional voiceover dependencies:
+
+```powershell
+python -m pip install -e ".[voice]"
 ```
 
 ## First-Time Setup
@@ -133,6 +140,12 @@ Dry run without rendering:
 aimanim generate "Explain gradient descent" --provider openrouter --model deepseek/deepseek-v4-flash --dry-run
 ```
 
+Generate with narration voiceover:
+
+```powershell
+aimanim generate "Explain Newton-Raphson method" --provider openai --voiceover --voice-provider gtts --voice-lang en --out outputs/newton_voice.mp4
+```
+
 Legacy command alias:
 
 ```powershell
@@ -180,6 +193,26 @@ aimanim generate "Explain derivatives" --provider openai --model gpt-4.1-mini --
 ```
 
 If `--non-interactive` is enabled and setup is missing, AIManim fails with a clear message instead of prompting.
+
+## Voiceover
+
+AIManim can render narration directly inside each generated Manim scene.
+
+- Enable with `--voiceover`.
+- Choose provider with `--voice-provider gtts` or `--voice-provider pyttsx3`.
+- Set language for gTTS with `--voice-lang` (for example `en`, `en-us`, `hi`).
+
+Examples:
+
+```powershell
+aimanim generate "Explain eigen vectors" --voiceover --voice-provider gtts --voice-lang en
+aimanim generate "Explain gradient descent" --voiceover --voice-provider pyttsx3
+```
+
+Dependency notes:
+
+- Voiceover mode requires `manim-voiceover` plus the selected speech backend.
+- If voiceover dependencies are missing, AIManim fails early with a clear preflight error.
 
 ## Reliability Behavior
 

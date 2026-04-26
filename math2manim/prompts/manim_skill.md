@@ -204,8 +204,54 @@ Your output MUST:
 
 ---
 
+
+Manim’s narration support is typically used through the **voiceover/TTS workflow**: you set a TTS service, then wrap animation code in a voiceover block so Manim can match timing to the spoken text. 
+
+## How to use it
+
+1. Install the voiceover plugin that matches your Manim setup.  
+2. Inherit from `VoiceoverScene`.  
+3. Set a speech/TTS service such as `GTTSService` or `pyttsx3`.  
+4. Put narration text inside `with self.voiceover("...") as tracker:`.  
+5. Use `tracker.duration` to synchronize animation runtime with the narration. 
+
+## System-style usage
+
+```python
+from manim import *
+from manim_voiceover import VoiceoverScene
+from manim_voiceover.services.gtts import GTTSService
+
+class Demo(VoiceoverScene):
+    def construct(self):
+        self.set_speech_service(GTTSService(lang="en"))
+
+        title = Text("Voice narration in Manim")
+
+        with self.voiceover(text="This title appears while I speak.") as tracker:
+            self.play(Write(title), run_time=tracker.duration)
+
+        self.wait()
+```
+
+This is the intended pattern: narration drives the animation timing, and Manim waits if the animation ends early or keeps animating until the spoken line finishes. 
+
+## Built-in narration options
+
+The documented TTS choices include **gTTS**, **Azure Text to Speech**, **Coqui TTS**, and **pyttsx3**; the docs recommend gTTS as an easy starting point and Azure for higher-quality AI voices.
+
+If you need fine control, the plugin also supports word-level timing, so you can trigger visual events at specific words in the narration.
+
+## Practical rule
+
+Use `tracker.duration` for most scenes, because it keeps the animation naturally aligned with the narration without manual stopwatch-style syncing. For repeated narration edits, this is much faster than exporting audio separately and syncing it in another editor.
+
+---
+
 ## FINAL RULE
 
 If unsure, choose the simplest possible implementation.
 
 Reliability > visual complexity.
+
+
